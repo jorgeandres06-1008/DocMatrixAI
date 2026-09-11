@@ -1,0 +1,14 @@
+Acta de reunión académica
+Categoría: Academico
+Documento de demostración generado para DocMatrix AI.
+Código de referencia: ACA-03
+Fecha de referencia: 2026-09-11
+
+Objetivo:
+Este documento contiene información sintética para validar la carga, extracción, clasificación y generación de resúmenes del sistema.
+
+Contenido:
+La organización realiza actividades relacionadas con academico. Se registran tareas, responsables, recursos y resultados esperados de forma ficticia. Los datos no corresponden a personas, empresas o transacciones reales.
+
+Resultado esperado:
+El sistema debe identificar el contenido como relacionado con la categoría Academico, generar un resumen breve y permitir localizar el documento mediante consultas.

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocMatrix AI - Sistema de Gestión Documental</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body { background-color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; }
+        .navbar-top { background: #ffffff; border-bottom: 1px solid #e2e8f0; }
+        .card-box { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .dropzone-box { border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; padding: 25px; text-align: center; cursor: pointer; transition: 0.2s; }
+        .dropzone-box:hover { border-color: #6366f1; background: #f1f5f9; }
+        .auth-wrapper { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .auth-box { width: 100%; max-width: 420px; background: #ffffff; border-radius: 16px; padding: 35px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- VISTA DE AUTENTICACIÓN -->
+        <div v-if="!sesionIniciada" class="auth-wrapper">
+            <div class="auth-box">
+                <div class="text-center mb-4">
+                    <div class="text-primary mb-2">
+                        <i class="fa-solid fa-brain fs-1"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark">DocMatrix AI</h3>
+                    <p class="text-muted small">Gestión Documental Inteligente - UTS</p>
+                </div>
+
+                <ul class="nav nav-pills nav-fill mb-4 bg-light p-1 rounded-3">
+                    <li class="nav-item">
+                        <button class="nav-link active rounded-2 py-2 small fw-semibold" @click="modoRegistro = false">Iniciar Sesión</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link rounded-2 py-2 small fw-semibold text-dark" @click="modoRegistro = true">Registrarse</button>
+                    </li>
+                </ul>
+
+                <form v-if="!modoRegistro" @submit.prevent="iniciarSesion">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary">Correo Electrónico</label>
+                        <input type="email" class="form-control" v-model="formLogin.email" placeholder="correo@uts.edu.co" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-secondary">Contraseña</label>
+                        <input type="password" class="form-control" v-model="formLogin.password" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" :disabled="autenticando" style="background-color: #6366f1; border: none;">
+                        {{ autenticando ? 'Ingresando...' : 'Iniciar Sesión' }}
+                    </button>
+                </form>
+
+                <form v-else @submit.prevent="registrarUsuario">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary">Nombre Completo</label>
+                        <input type="text" class="form-control" v-model="formRegistro.nombre" placeholder="Tu nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary">Correo Electrónico</label>
+                        <input type="email" class="form-control" v-model="formRegistro.email" placeholder="correo@uts.edu.co" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-secondary">Contraseña</label>
+                        <input type="password" class="form-control" v-model="formRegistro.password" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 py-2 fw-semibold" :disabled="autenticando">
+                        {{ autenticando ? 'Registrando...' : 'Crear Cuenta' }}
+                    </button>
+                </form>
+
+                <div v-if="mensajeAuth" :class="['alert mt-3 py-2 small text-center', tipoAlertaAuth]">{{ mensajeAuth }}</div>
+            </div>
+        </div>
+
+        <!-- VISTA PRINCIPAL (LIMPIA Y CENTRADA) -->
+        <div v-else>
+            <!-- Barra Superior Limpia -->
+            <nav class="navbar navbar-top px-4 py-3 mb-4">
+                <div class="container-fluid">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-brain text-primary fs-4"></i>
+                        <span class="fw-bold fs-5 text-dark">DocMatrix AI</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="badge bg-success-subtle text-success border border-success px-2 py-1 small">● Sistema Activo</span>
+                        <span class="text-secondary small fw-semibold">{{ usuarioActual.email }}</span>
+                        <button class="btn btn-sm btn-outline-danger px-3" @click="cerrarSesion">Salir</button>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="container pb-5">
+                <!-- Indicadores Superiores Sencillos -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="card-box p-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-muted small d-block">Total Documentos</span>
+                                <h3 class="fw-bold mb-0 text-dark">{{ documentos.length }}</h3>
+                            </div>
+                            <i class="fa-solid fa-folder-open text-primary fs-2 opacity-50"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card-box p-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-muted small d-block">Formatos Admitidos</span>
+                                <h5 class="fw-bold mb-0 text-success">PDF, DOCX, TXT</h5>
+                            </div>
+                            <i class="fa-solid fa-file-shield text-success fs-2 opacity-50"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card-box p-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-muted small d-block">Motor IA / RAG</span>
+                                <h5 class="fw-bold mb-0 text-indigo" style="color: #6366f1;">Groq LLM</h5>
+                            </div>
+                            <i class="fa-solid fa-microchip text-indigo fs-2 opacity-50" style="color: #6366f1;"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Columna Izquierda: Subida y conteo de formatos -->
+                    <div class="col-lg-4">
+                        <div class="card-box p-4 mb-4">
+                            <h6 class="fw-bold mb-3 text-secondary text-uppercase small">Cargar Archivo</h6>
+                            <div class="dropzone-box" @click="$refs.fileInput.click()">
+                                <i class="fa-solid fa-cloud-arrow-up fa-2x text-primary mb-2"></i>
+                                <p class="mb-1 small fw-semibold">Haz clic para seleccionar</p>
+                                <span class="text-muted" style="font-size: 0.75rem;">Soporta PDF, DOCX, TXT</span>
+                                <input type="file" ref="fileInput" class="d-none" accept=".pdf,.docx,.txt" @change="subirDocumento">
+                            </div>
+                            <div v-if="cargando" class="text-center mt-3 text-primary small fw-bold">
+                                <i class="fa-solid fa-spinner fa-spin me-1"></i> Analizando documento...
+                            </div>
+                            <div v-if="mensaje" :class="['alert mt-3 py-2 small text-center', tipoAlerta]">{{ mensaje }}</div>
+                        </div>
+
+                        <div class="card-box p-4">
+                            <h6 class="fw-bold mb-3 text-secondary text-uppercase small">Formatos en Repositorio</h6>
+                            <div class="d-flex justify-content-between align-items-center mb-2 small bg-light p-2 rounded">
+                                <span><i class="fa-solid fa-file-pdf text-danger me-2"></i> PDF</span>
+                                <span class="badge bg-danger rounded-pill">{{ contarFormato('pdf') }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2 small bg-light p-2 rounded">
+                                <span><i class="fa-solid fa-file-word text-primary me-2"></i> DOCX</span>
+                                <span class="badge bg-primary rounded-pill">{{ contarFormato('docx') }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center small bg-light p-2 rounded">
+                                <span><i class="fa-solid fa-file-lines text-success me-2"></i> TXT</span>
+                                <span class="badge bg-success rounded-pill">{{ contarFormato('txt') }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha: Tabla y Consultas RAG -->
+                    <div class="col-lg-8">
+                        <div class="card-box p-4 mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0 text-secondary text-uppercase small">Lista de Documentos</h6>
+                                <button class="btn btn-sm btn-light border text-secondary" @click="obtenerDocumentos"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light small text-uppercase">
+                                        <tr>
+                                            <th>Archivo</th>
+                                            <th>Formato</th>
+                                            <th>Categoría IA</th>
+                                            <th>Estado</th>
+                                            <th class="text-end">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-if="documentos.length === 0">
+                                            <td colspan="5" class="text-center text-muted py-4 small">No hay documentos cargados en el sistema.</td>
+                                        </tr>
+                                        <tr v-for="doc in documentos" :key="doc.id">
+                                            <td class="fw-semibold small text-truncate" style="max-width: 180px;">{{ doc.nombre }}</td>
+                                            <td><span class="badge bg-light text-dark border">{{ doc.tipo.toUpperCase() }}</span></td>
+                                            <td><span class="badge bg-primary-subtle text-primary border border-primary px-2">{{ doc.categoria }}</span></td>
+                                            <td><span class="badge bg-success-subtle text-success border border-success">Procesado</span></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary py-0 px-2 small me-1" @click="verResumen(doc)">Resumen</button>
+                                                <button class="btn btn-sm btn-outline-danger py-0 px-2 small" @click="eliminarDocumento(doc.id)"><i class="fa-solid fa-trash-can"></i></button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Consulta RAG -->
+                        <div class="card-box p-4">
+                            <h6 class="fw-bold mb-2 text-secondary text-uppercase small">Consulta Inteligente (RAG)</h6>
+                            <p class="text-muted small mb-3">Pregúntale al modelo sobre el contenido global de tus documentos almacenados.</p>
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" v-model="preguntaUsuario" placeholder="Ej: ¿Qué temas principales tratan los archivos cargados?">
+                                <button class="btn btn-success px-4" @click="consultarIA" :disabled="buscando">
+                                    {{ buscando ? 'Analizando...' : 'Preguntar' }}
+                                </button>
+                            </div>
+                            <div v-if="respuestaIA" class="alert alert-light border p-3 mb-0 small">
+                                <strong class="text-success"><i class="fa-solid fa-robot me-1"></i> Respuesta:</strong>
+                                <p class="mb-0 mt-1 text-dark">{{ respuestaIA }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal de Resumen -->
+            <div class="modal fade" id="modalResumen" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header bg-dark text-white">
+                            <h5 class="modal-title fs-6"><i class="fa-solid fa-file-lines me-2"></i> {{ documentoSeleccionado.nombre }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <span class="badge bg-primary px-3 py-2">Categoría: {{ documentoSeleccionado.categoria }}</span>
+                                <span class="badge bg-secondary px-3 py-2 ms-2">Formato: {{ documentoSeleccionado.tipo }}</span>
+                            </div>
+                            <h6 class="fw-bold text-secondary text-uppercase small">Resumen Generado por IA:</h6>
+                            <p class="p-3 bg-light border rounded small mb-0 text-dark" style="line-height: 1.6;">{{ documentoSeleccionado.resumen }}</p>
+                        </div>
+                        <div class="modal-footer bg-light">
+                            <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    sesionIniciada: false,
+                    modoRegistro: false,
+                    autenticando: false,
+                    mensajeAuth: '',
+                    tipoAlertaAuth: '',
+                    usuarioActual: {},
+                    formLogin: { email: '', password: '' },
+                    formRegistro: { nombre: '', email: '', password: '' },
+                    
+                    cargando: false,
+                    mensaje: '',
+                    tipoAlerta: '',
+                    documentos: [],
+                    preguntaUsuario: '',
+                    respuestaIA: '',
+                    buscando: false,
+                    documentoSeleccionado: {}
+                }
+            },
+            mounted() {
+                const usuarioGuardado = localStorage.getItem('usuario_actual');
+                if (usuarioGuardado) {
+                    this.usuarioActual = JSON.parse(usuarioGuardado);
+                    this.sesionIniciada = true;
+                    this.obtenerDocumentos();
+                }
+            },
+            methods: {
+                contarFormato(tipo) {
+                    return this.documentos.filter(d => d.tipo.toLowerCase() === tipo.toLowerCase()).length;
+                },
+                async iniciarSesion() {
+                    this.autenticando = true;
+                    this.mensajeAuth = '';
+                    try {
+                        const respuesta = await fetch('/Proyecto_documental/backend/controllers/login.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formLogin)
+                        });
+                        const resultado = await respuesta.json();
+                        if (resultado.status === 'success') {
+                            this.usuarioActual = resultado.usuario;
+                            localStorage.setItem('usuario_actual', JSON.stringify(resultado.usuario));
+                            this.sesionIniciada = true;
+                            this.obtenerDocumentos();
+                        } else {
+                            this.tipoAlertaAuth = 'alert-danger';
+                            this.mensajeAuth = resultado.message;
+                        }
+                    } catch (error) {
+                        this.tipoAlertaAuth = 'alert-danger';
+                        this.mensajeAuth = 'Error de conexión con el servidor.';
+                    } finally {
+                        this.autenticando = false;
+                    }
+                },
+                async registrarUsuario() {
+                    this.autenticando = true;
+                    this.mensajeAuth = '';
+                    try {
+                        const respuesta = await fetch('/Proyecto_documental/backend/controllers/register.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formRegistro)
+                        });
+                        const resultado = await respuesta.json();
+                        if (resultado.status === 'success') {
+                            this.tipoAlertaAuth = 'alert-success';
+                            this.mensajeAuth = 'Registro exitoso. Ya puedes iniciar sesión.';
+                            this.modoRegistro = false;
+                        } else {
+                            this.tipoAlertaAuth = 'alert-danger';
+                            this.mensajeAuth = resultado.message;
+                        }
+                    } catch (error) {
+                        this.tipoAlertaAuth = 'alert-danger';
+                        this.mensajeAuth = 'Error de conexión con el servidor.';
+                    } finally {
+                        this.autenticando = false;
+                    }
+                },
+                cerrarSesion() {
+                    localStorage.removeItem('usuario_actual');
+                    this.sesionIniciada = false;
+                    this.usuarioActual = {};
+                    this.documentos = [];
+                },
+                async obtenerDocumentos() {
+                    try {
+                        const respuesta = await fetch('/Proyecto_documental/backend/controllers/get_documentos.php');
+                        const resultado = await respuesta.json();
+                        if (resultado.status === 'success') {
+                            this.documentos = resultado.data.map(d => ({
+                                id: d.id,
+                                nombre: d.nombre_archivo || 'Documento sin nombre',
+                                tipo: d.tipo_archivo || 'pdf',
+                                categoria: d.categoria || 'General',
+                                resumen: d.resumen || 'Sin resumen disponible',
+                                fecha: d.fecha_subida || 'Hoy'
+                            }));
+                        }
+                    } catch (error) {
+                        console.error("Error al obtener documentos.");
+                    }
+                },
+                async subirDocumento(event) {
+                    const archivo = event.target.files[0];
+                    if (!archivo) return;
+
+                    this.cargando = true;
+                    this.mensaje = '';
+
+                    const formData = new FormData();
+                    formData.append('documento', archivo);
+                    formData.append('id_repositorio', 1);
+
+                    try {
+                        const respuesta = await fetch('/Proyecto_documental/backend/controllers/upload.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const texto = await respuesta.text();
+                        let resultado;
+                        try {
+                            resultado = JSON.parse(texto);
+                        } catch (e) {
+                            throw new Error("Error en servidor: " + texto);
+                        }
+
+                        if (resultado.status === 'success') {
+                            this.tipoAlerta = 'alert-success';
+                            this.mensaje = resultado.message;
+                            this.obtenerDocumentos();
+                        } else {
+                            this.tipoAlerta = 'alert-danger';
+                            this.mensaje = resultado.message;
+                        }
+                    } catch (error) {
+                        this.tipoAlerta = 'alert-danger';
+                        this.mensaje = error.message;
+                    } finally {
+                        this.cargando = false;
+                        event.target.value = '';
+                    }
+                },
+                verResumen(doc) {
+                    this.documentoSeleccionado = doc;
+                    const modal = new bootstrap.Modal(document.getElementById('modalResumen'));
+                    modal.show();
+                },
+                async eliminarDocumento(id) {
+                    if (!confirm("¿Deseas eliminar este documento?")) return;
+                    try {
+                        const respuesta = await fetch('/Proyecto_documental/backend/controllers/delete_documento.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id_documento: id })
+                        });
+                        const resultado = await respuesta.json();
+                        if (resultado.status === 'success') {
+                            this.obtenerDocumentos();
+                        }
+                    } catch (error) {
+                        alert("Error al intentar eliminar.");
+                    }
+                },
+                async consultarIA() {
+                    if (!this.preguntaUsuario.trim()) return;
+                    this.buscando = true;
+                    this.respuestaIA = '';
+
+                    try {
+                        const respuesta = await fetch('/Proyecto_documental/backend/controllers/search.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pregunta: this.preguntaUsuario })
+                        });
+                        const resultado = await respuesta.json();
+                        if (resultado.status === 'success') {
+                            this.respuestaIA = resultado.respuesta;
+                        } else {
+                            this.respuestaIA = 'Error: ' + resultado.message;
+                        }
+                    } catch (error) {
+                        this.respuestaIA = 'Error de conexión con el servidor.';
+                    } finally {
+                        this.buscando = false;
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
